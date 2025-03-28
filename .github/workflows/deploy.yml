@@ -60,11 +60,11 @@ jobs:
 
          - name: Copy Build Files to EC2
            run: |
-              scp -o StrictHostKeyChecking=no -i private_key.pem -r build ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/
+              scp -o StrictHostKeyChecking=no -i private_key.pem -r build ${{ secrets.EC2_SSH_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/
 
          - name: Deploy to Nginx on EC2
            run: |
-              ssh -o StrictHostKeyChecking=no -i private_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+              ssh -o StrictHostKeyChecking=no -i private_key.pem ${{ secrets.EC2_SSH_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
               # Move build files to Nginx directory
               sudo rm -rf /var/www/react-app
               sudo mv /home/ubuntu/build /var/www/react-app
