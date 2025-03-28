@@ -3,7 +3,7 @@ name: Deploy React App to Netlify
 on:
    push:
       branches:
-         - main # Runs when pushing to the main branch
+         - master # Runs when pushing to the main branch
 
 jobs:
    build-and-deploy:
