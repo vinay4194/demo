@@ -33,45 +33,44 @@
 #               NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
 #               NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
 
-name: Deploy React to EC2
+name: Deploy React to AWS EC2
 
 on:
    push:
       branches:
-         - master # Change this if needed
+         - master # Deploy when pushing to master
 
 jobs:
    deploy:
       runs-on: ubuntu-latest
 
       steps:
-         - name: Checkout Code
+         - name: Checkout Repository
            uses: actions/checkout@v3
 
-         - name: Install Dependencies and Build
+         - name: Install Dependencies and Build React
            run: |
               npm install
               npm run build
 
-         - name: Deploy to EC2
-           env:
-              PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-              HOST: ${{ secrets.EC2_HOST }}
-              USER: ${{ secrets.EC2_SSH_USER }}
+         - name: Setup SSH Key
            run: |
-              echo "$PRIVATE_KEY" > private_key.pem
+              echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
               chmod 600 private_key.pem
 
-              export SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+         - name: Copy Build Files to EC2
+           run: |
+              scp -o StrictHostKeyChecking=no -i private_key.pem -r build ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/
 
-              # Copy build files to EC2
-              scp -i private_key.pem -r build $USER@$HOST:/home/ubuntu/
+         - name: Deploy to Nginx on EC2
+           run: |
+              ssh -o StrictHostKeyChecking=no -i private_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+              # Move build files to Nginx directory
+              sudo rm -rf /var/www/react-app
+              sudo mv /home/ubuntu/build /var/www/react-app
+              sudo chown -R www-data:www-data /var/www/react-app
+              sudo chmod -R 755 /var/www/react-app
 
-              # Move to Nginx directory and restart Nginx
-              ssh -i private_key.pem $USER@$HOST << 'EOF'
-                sudo rm -rf /var/www/react-app
-                sudo mv /home/ubuntu/build /var/www/react-app
-                sudo chown -R www-data:www-data /var/www/react-app
-                sudo chmod -R 755 /var/www/react-app
-                sudo systemctl restart nginx
+              # Restart Nginx
+              sudo systemctl restart nginx
               EOF
