@@ -1,34 +1,75 @@
-name: Deploy React App to Netlify
+# name: Deploy React App to Netlify
+
+# on:
+#    push:
+#       branches:
+#          - master # Runs when pushing to the main branch
+
+# jobs:
+#    build-and-deploy:
+#       runs-on: ubuntu-latest
+
+#       steps:
+#          - name: Checkout Repository
+#            uses: actions/checkout@v3
+
+#          - name: Set up Node.js
+#            uses: actions/setup-node@v3
+#            with:
+#               node-version: 18
+
+#          - name: Install Dependencies
+#            run: npm install
+
+#          - name: Build React App
+#            run: npm run build
+
+#          - name: Install Netlify CLI
+#            run: npm install -g netlify-cli # Ensures CLI is installed
+
+#          - name: Deploy to Netlify
+#            run: netlify deploy --prod --dir=build --site $NETLIFY_SITE_ID
+#            env:
+#               NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+#               NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+name: Deploy React to EC2
 
 on:
    push:
       branches:
-         - master # Runs when pushing to the main branch
+         - master # Change this if needed
 
 jobs:
-   build-and-deploy:
+   deploy:
       runs-on: ubuntu-latest
 
       steps:
-         - name: Checkout Repository
+         - name: Checkout Code
            uses: actions/checkout@v3
 
-         - name: Set up Node.js
-           uses: actions/setup-node@v3
-           with:
-              node-version: 18
+         - name: Install Dependencies and Build
+           run: |
+              npm install
+              npm run build
 
-         - name: Install Dependencies
-           run: npm install
-
-         - name: Build React App
-           run: npm run build
-
-         - name: Install Netlify CLI
-           run: npm install -g netlify-cli # Ensures CLI is installed
-
-         - name: Deploy to Netlify
-           run: netlify deploy --prod --dir=build --site $NETLIFY_SITE_ID
+         - name: Deploy to EC2
            env:
-              NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-              NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+              PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+              HOST: ${{ secrets.EC2_HOST }}
+              USER: ${{ secrets.EC2_SSH_USER }}
+           run: |
+              echo "$PRIVATE_KEY" > private_key.pem
+              chmod 600 private_key.pem
+
+              # Copy build files to EC2
+              scp -i private_key.pem -r build $USER@$HOST:/home/ubuntu/
+
+              # Move to Nginx directory and restart Nginx
+              ssh -i private_key.pem $USER@$HOST << 'EOF'
+                sudo rm -rf /var/www/react-app
+                sudo mv /home/ubuntu/build /var/www/react-app
+                sudo chown -R www-data:www-data /var/www/react-app
+                sudo chmod -R 755 /var/www/react-app
+                sudo systemctl restart nginx
+              EOF
